@@ -1,0 +1,14 @@
+CLIENT_ID = "wo004y6xsfgpfhlzvx5jmbvkv8qnea"
+CLIENT_SECRET = "ftjppfz98zan60crwj76b7u5mrkyef"
+BROADCASTER_ID = "202641603"
+REDIRECT_URI = "https://9453-2601-541-e01-8d30-00-e2e.ngrok-free.app/callback"
+WEBHOOK_SECRET = "c3c50697b676ce8bca9ed4d0c81976868875ea48a6c7fb440cad6331afde3eb3"
+WEBHOOK_CALLBACK = "https://9453-2601-541-e01-8d30-00-e2e.ngrok-free.app/webhook"
+TWITCH_CHAT_URL = "wss://irc-ws.chat.twitch.tv:443"
+TWITCH_BOT_NICKNAME= "pccbot"
+BOT_OAUTH_TOKEN= "oauth:l6bf31p12o1dqgakr0uqnw8udbdhiu"
+BOT_CLIENT_ID = "t9ydbg9oecyvz78wsulfub4qbu3zm5"
+BOT_CLIENT_SECRET = "5ihxlxeoynmfa3t9etcvo3znpxc0to"
+TWITCH_CHANNEL = "procptcasual"
+USER_ACCESS_TOKEN = None
+REFRESH_TOKEN = None

@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch Stream Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --twitch-purple: #9146FF;
+            --twitch-light: #e2d7f4;
+            --dark-bg: #18181b;
+            --card-bg: #1f1f23;
+            --text-color: #efeff1;
+            --muted-text: #adadb8;
+            --border-color: #303032;
+        }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .navbar {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .navbar-brand {
+            color: var(--twitch-purple);
+            font-weight: bold;
+        }
+        
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            margin-bottom: 1rem;
+        }
+        
+        .card-header {
+            background-color: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: bold;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 1rem;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--twitch-purple);
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--muted-text);
+        }
+        
+        .events-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .event-item {
+            border-left: 4px solid var(--twitch-purple);
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            background-color: rgba(145, 70, 255, 0.1);
+        }
+        
+        .event-item.follow {
+            border-left-color: #9146FF;
+        }
+        
+        .event-item.subscription {
+            border-left-color: #00b8ff;
+        }
+        
+        .event-item.cheer {
+            border-left-color: #ffca61;
+        }
+        
+        .event-item.raid {
+            border-left-color: #ff6446;
+        }
+        
+        .event-item.channel_points {
+            border-left-color: #41f097;
+        }
+        
+        .event-time {
+            font-size: 0.8rem;
+            color: var(--muted-text);
+        }
+        
+        .nav-tabs {
+            border-bottom-color: var(--border-color);
+        }
+        
+        .nav-tabs .nav-link {
+            color: var(--muted-text);
+            border: none;
+        }
+        
+        .nav-tabs .nav-link:hover {
+            border-color: transparent;
+            color: var(--text-color);
+        }
+        
+        .nav-tabs .nav-link.active {
+            background-color: transparent;
+            border-bottom: 2px solid var(--twitch-purple);
+            color: var(--twitch-purple);
+        }
+        
+        .btn-twitch {
+            background-color: var(--twitch-purple);
+            border-color: var(--twitch-purple);
+            color: white;
+        }
+        
+        .btn-twitch:hover {
+            background-color: #7e3bd9;
+            border-color: #7e3bd9;
+            color: white;
+        }
+        
+        .form-control, .form-select {
+            background-color: var(--dark-bg);
+            border-color: var(--border-color);
+            color: var(--text-color);
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            border-color: var(--twitch-purple);
+            box-shadow: 0 0 0 0.25rem rgba(145, 70, 255, 0.25);
+        }
+        
+        .toast-notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: rgba(65, 240, 151, 0.9);
+            color: #1f1f23;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+            transform: translateY(100px);
+            opacity: 0;
+            z-index: 10000;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+        
+        .toast-notification.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .toast-notification.error {
+            background-color: rgba(255, 100, 70, 0.9);
+            color: white;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--dark-bg);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #333339;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3f3f47;
+        }
+        
+        .chat-message {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .username {
+            font-weight: bold;
+        }
+        
+        .message-text {
+            word-break: break-word;
+        }
+        
+        .reward-item {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .reward-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .reward-title {
+            flex-grow: 1;
+        }
+        
+        .reward-cost {
+            font-weight: bold;
+            color: #41f097;
+        }
+        
+        .system-message {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            font-family: monospace;
+        }
+
+        .system-time {
+            color: var(--muted-text);
+            margin-right: 0.5rem;
+        }
+
+        .system-text {
+            color: #41f097;
+        }
+
+        .system-text.error {
+            color: #ff6446;
+        }
+
+        .system-text.warning {
+            color: #ffca61;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fa-brands fa-twitch me-2"></i>Twitch Dashboard
+            </a>
+            <div class="navbar-text ms-auto">
+                <span id="connection-status" class="text-success">
+                    <i class="fas fa-circle me-1"></i>Connected
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+        <div class="row">
+            <!-- Statistics Cards -->
+            <div class="col-lg-8">
+                <div class="row">
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card stat-card">
+                            <div class="stat-value" id="viewer-count">0</div>
+                            <div class="stat-label">Current Viewers</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card stat-card">
+                            <div class="stat-value" id="chat-rate">0</div>
+                            <div class="stat-label">Messages/Minute</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card stat-card">
+                            <div class="stat-value" id="follower-count">0</div>
+                            <div class="stat-label">Today's Followers</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card stat-card">
+                            <div class="stat-value" id="sub-count">0</div>
+                            <div class="stat-label">Today's Subs</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Activity Charts -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        Stream Activity
+                    </div>
+                    <div class="card-body">
+                        <canvas id="activity-chart" height="250"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Recent Events -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        Recent Events
+                    </div>
+                    <div class="card-body events-list p-2" id="events-container">
+                        <!-- Events will be inserted here -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Sidebar -->
+            <div class="col-lg-4">
+                <!-- Chat Box -->
+                <div class="card">
+                    <div class="card-header">
+                        Live Chat
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="chat-messages" id="chat-messages" style="height: 300px; overflow-y: auto;">
+                            <!-- Chat messages will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-4">
+                    <div class="card-header">
+                        System Messages
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="chat-messages" id="system-messages" style="height: 200px; overflow-y: auto;">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Channel Point Redemptions -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        Channel Point Redemptions
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="reward-list" id="reward-list" style="max-height: 250px; overflow-y: auto;">
+                            <!-- Redemptions will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Alert Customization -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        Alert Settings
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="alertTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="follows-tab" data-bs-toggle="tab" data-bs-target="#follows" type="button" role="tab">Follows</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="subs-tab" data-bs-toggle="tab" data-bs-target="#subs" type="button" role="tab">Subs</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="cheers-tab" data-bs-toggle="tab" data-bs-target="#cheers" type="button" role="tab">Cheers</button>
+                            </li>
+                        </ul>
+                        <div class="tab-content p-3" id="alertTabsContent">
+                            <div class="tab-pane fade show active" id="follows" role="tabpanel">
+                                <div class="mb-3">
+                                    <label class="form-label">Alert Duration (seconds)</label>
+                                    <input type="number" class="form-control" id="follow-duration" value="5">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Sound Effect</label>
+                                    <select class="form-select" id="follow-sound">
+                                        <option value="follow.wav">Default Follow</option>
+                                        <option value="ding.wav">Ding</option>
+                                        <option value="none">No Sound</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Animation Style</label>
+                                    <select class="form-select" id="follow-animation">
+                                        <option value="fade">Fade</option>
+                                        <option value="slide">Slide</option>
+                                        <option value="bounce">Bounce</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-twitch" id="save-follow-settings">Save Follow Settings</button>
+                            </div>
+                            <div class="tab-pane fade" id="subs" role="tabpanel">
+                                <div class="mb-3">
+                                    <label class="form-label">Alert Duration (seconds)</label>
+                                    <input type="number" class="form-control" id="sub-duration" value="8">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Sound Effect</label>
+                                    <select class="form-select" id="sub-sound">
+                                        <option value="sub.wav">Default Sub</option>
+                                        <option value="cheer.wav">Cheer</option>
+                                        <option value="none">No Sound</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Animation Style</label>
+                                    <select class="form-select" id="sub-animation">
+                                        <option value="confetti">Confetti</option>
+                                        <option value="slide">Slide</option>
+                                        <option value="bounce">Bounce</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-twitch" id="save-sub-settings">Save Sub Settings</button>
+                            </div>
+                            <div class="tab-pane fade" id="cheers" role="tabpanel">
+                                <div class="mb-3">
+                                    <label class="form-label">Minimum Bits to Display</label>
+                                    <input type="number" class="form-control" id="bits-min" value="100">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Sound Effect</label>
+                                    <select class="form-select" id="cheer-sound">
+                                        <option value="cheer.wav">Default Cheer</option>
+                                        <option value="cash.wav">Cash Register</option>
+                                        <option value="none">No Sound</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Animation Style</label>
+                                    <select class="form-select" id="cheer-animation">
+                                        <option value="rain">Bit Rain</option>
+                                        <option value="explosion">Explosion</option>
+                                        <option value="simple">Simple</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-twitch" id="save-cheer-settings">Save Cheer Settings</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Connect to Socket.IO server
+        const socket = io({
+            query: {
+                client_type: 'dashboard'
+            }
+        });
+        let eventCount = 0;
+        let chatMessages = [];
+        let lastMinuteMessages = [];
+        let chatRateUpdateInterval;
+        
+        // Sample data for chart
+        let activityData = {
+            labels: [],
+            viewers: [],
+            chatRate: []
+        };
+        
+        // Initialize for past 30 minutes
+        for (let i = 30; i > 0; i--) {
+            const time = new Date();
+            time.setMinutes(time.getMinutes() - i);
+            activityData.labels.push(time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
+            activityData.viewers.push(0);
+            activityData.chatRate.push(0);
+        }
+        
+        // Initialize Chart
+        const ctx = document.getElementById('activity-chart').getContext('2d');
+        const activityChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: activityData.labels,
+                datasets: [
+                    {
+                        label: 'Viewers',
+                        data: activityData.viewers,
+                        borderColor: '#9146FF',
+                        backgroundColor: 'rgba(145, 70, 255, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Messages/Minute',
+                        data: activityData.chatRate,
+                        borderColor: '#41f097',
+                        backgroundColor: 'rgba(65, 240, 151, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#adadb8'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#adadb8'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#efeff1'
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Connect to Socket.IO
+        socket.on('connect', () => {
+            document.getElementById('connection-status').classList.remove('text-danger');
+            document.getElementById('connection-status').classList.add('text-success');
+            document.getElementById('connection-status').innerHTML = '<i class="fas fa-circle me-1"></i>Connected';
+            
+            // Start tracking chat rate
+            startChatRateTracking();
+        });
+        
+        socket.on('disconnect', () => {
+            document.getElementById('connection-status').classList.remove('text-success');
+            document.getElementById('connection-status').classList.add('text-danger');
+            document.getElementById('connection-status').innerHTML = '<i class="fas fa-circle me-1"></i>Disconnected';
+            
+            // Stop tracking when disconnected
+            clearInterval(chatRateUpdateInterval);
+        });
+        
+        // Listen for Twitch events
+        socket.on('twitch_alert', (data) => {
+            addEvent(data);
+            updateStats(data);
+        });
+        
+        // Listen for dashboard-only events (non-alerting historical events)
+        socket.on('dashboard_event', (data) => {
+            addEvent(data);
+            // Don't call updateStats for historical events
+        });
+        
+        // Listen for viewer count updates
+        socket.on('viewer_count', (count) => {
+            document.getElementById('viewer-count').textContent = count;
+            updateViewerChart(count);
+        });
+        
+        // Listen for chat messages
+        socket.on('chat_message', (message) => {
+            addChatMessage(message);
+            lastMinuteMessages.push(new Date());
+            updateChatRate();
+        });
+
+        // Listen for system messages
+        socket.on('system_message', (message) => {
+            addSystemMessage(message);
+        });
+
+        function addSystemMessage(message) {
+            const systemContainer = document.getElementById('system-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'system-message';
+            
+            const time = new Date().toLocaleTimeString();
+            
+            messageDiv.innerHTML = `
+                <span class="system-time">[${time}]</span>
+                <span class="system-text">${message.text}</span>
+            `;
+            
+            systemContainer.appendChild(messageDiv);
+            systemContainer.scrollTop = systemContainer.scrollHeight;
+            
+            // Limit to last 100 messages
+            if (systemContainer.children.length > 100) {
+                systemContainer.removeChild(systemContainer.firstChild);
+            }
+        }
+        
+        function startChatRateTracking() {
+            // Update chat rate every 10 seconds
+            chatRateUpdateInterval = setInterval(() => {
+                updateChatRate();
+                
+                // Update chart every minute
+                if (new Date().getSeconds() < 10) {
+                    updateActivityChart();
+                }
+            }, 10000);
+        }
+        
+        function updateChatRate() {
+            // Filter messages from the last minute
+            const now = new Date();
+            lastMinuteMessages = lastMinuteMessages.filter(time => {
+                return (now - time) < 60000; // less than 1 minute old
+            });
+            
+            // Update the display
+            document.getElementById('chat-rate').textContent = lastMinuteMessages.length;
+        }
+        
+        function updateActivityChart() {
+            // Add new data point
+            const now = new Date();
+            const timeLabel = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            activityData.labels.push(timeLabel);
+            activityData.viewers.push(parseInt(document.getElementById('viewer-count').textContent));
+            activityData.chatRate.push(parseInt(document.getElementById('chat-rate').textContent));
+            
+            // Remove oldest data point to keep 30 points
+            if (activityData.labels.length > 30) {
+                activityData.labels.shift();
+                activityData.viewers.shift();
+                activityData.chatRate.shift();
+            }
+            
+            // Update chart
+            activityChart.data.labels = activityData.labels;
+            activityChart.data.datasets[0].data = activityData.viewers;
+            activityChart.data.datasets[1].data = activityData.chatRate;
+            activityChart.update();
+        }
+        
+        function updateViewerChart(count) {
+            // Update last data point with current viewer count
+            activityChart.data.datasets[0].data[activityChart.data.datasets[0].data.length - 1] = count;
+            activityChart.update();
+        }
+        
+        function addEvent(data) {
+            const eventsContainer = document.getElementById('events-container');
+            const eventItem = document.createElement('div');
+            eventItem.className = `event-item ${data.type}`;
+            
+            let eventContent = '';
+            const time = new Date().toLocaleTimeString();
+            
+            switch(data.type) {
+                case 'channel.follow':
+                    eventContent = `<strong>${data.data.user_name}</strong> followed the channel`;
+                    incrementStat('follower-count');
+                    break;
+                    
+                case 'channel.subscribe':
+                    const months = data.data.tier === "prime" ? "with Prime" : `(${data.data.tier})`;
+                    eventContent = `<strong>${data.data.user_name}</strong> subscribed ${months}`;
+                    incrementStat('sub-count');
+                    break;
+                    
+                case 'channel.cheer':
+                    eventContent = `<strong>${data.data.user_name}</strong> cheered ${data.data.bits} bits`;
+                    break;
+                    
+                case 'channel.raid':
+                    eventContent = `<strong>${data.data.from_broadcaster_user_name}</strong> raided with ${data.data.viewers} viewers`;
+                    break;
+                    
+                case 'channel_points':
+                    eventContent = `<strong>${data.data.user_name}</strong> redeemed ${data.data.reward}`;
+                    addRedemption(data.data);
+                    break;
+            }
+            
+            eventItem.innerHTML = `
+                ${eventContent}
+                <div class="event-time">${time}</div>
+            `;
+            
+            eventsContainer.prepend(eventItem);
+            
+            // Limit to last 50 events
+            if (eventsContainer.children.length > 50) {
+                eventsContainer.removeChild(eventsContainer.lastChild);
+            }
+        }
+        
+        function addChatMessage(message) {
+            const chatContainer = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message';
+            
+            let color = '#efeff1'; // Default color
+            if (message.tags && message.tags.color) {
+                color = message.tags.color;
+            }
+            
+            messageDiv.innerHTML = `
+                <span class="username" style="color: ${color};">${message.username}:</span>
+                <span class="message-text">${message.message}</span>
+            `;
+            
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            // Limit to last 100 messages
+            if (chatContainer.children.length > 100) {
+                chatContainer.removeChild(chatContainer.firstChild);
+            }
+        }
+        
+        function addRedemption(data) {
+            const rewardList = document.getElementById('reward-list');
+            const rewardItem = document.createElement('div');
+            rewardItem.className = 'reward-item';
+            
+            // Generate a random color if not provided
+            const color = data.reward_color || getRandomColor();
+            
+            rewardItem.innerHTML = `
+                <div class="reward-color" style="background-color: ${color};"></div>
+                <div class="reward-title">${data.reward}</div>
+                <div class="reward-user">${data.user_name}</div>
+            `;
+            
+            rewardList.prepend(rewardItem);
+            
+            // Limit to last 20 redemptions
+            if (rewardList.children.length > 20) {
+                rewardList.removeChild(rewardList.lastChild);
+            }
+        }
+        
+        function getRandomColor() {
+            const colors = ['#9146FF', '#00b8ff', '#ffca61', '#ff6446', '#41f097'];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+        
+        function incrementStat(id) {
+            const element = document.getElementById(id);
+            const currentValue = parseInt(element.textContent);
+            element.textContent = currentValue + 1;
+        }
+        
+        // Load alert settings
+        function loadAlertSettings() {
+            fetch('/api/alert-settings')
+                .then(response => response.json())
+                .then(settings => {
+                    // Populate the form fields with the current settings
+                    if (settings.follow) {
+                        document.getElementById('follow-duration').value = settings.follow.duration;
+                        document.getElementById('follow-sound').value = settings.follow.sound_effect;
+                        document.getElementById('follow-animation').value = settings.follow.animation;
+                    }
+                    
+                    if (settings.subscription) {
+                        document.getElementById('sub-duration').value = settings.subscription.duration;
+                        document.getElementById('sub-sound').value = settings.subscription.sound_effect;
+                        document.getElementById('sub-animation').value = settings.subscription.animation;
+                    }
+                    
+                    if (settings.cheer) {
+                        document.getElementById('bits-min').value = settings.cheer.min_value;
+                        document.getElementById('cheer-sound').value = settings.cheer.sound_effect;
+                        document.getElementById('cheer-animation').value = settings.cheer.animation;
+                    }
+                })
+                .catch(error => console.error('Error loading alert settings:', error));
+        }
+        
+        // Save alert settings
+        function saveAlertSettings(alertType, settings) {
+            fetch(`/api/alert-settings/${alertType}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(settings)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success notification
+                    showToast(`${alertType.charAt(0).toUpperCase() + alertType.slice(1)} settings saved successfully!`);
+                }
+            })
+            .catch(error => {
+                console.error(`Error saving ${alertType} settings:`, error);
+                showToast(`Error saving ${alertType} settings`, 'error');
+            });
+        }
+        
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toastContainer = document.createElement('div');
+            toastContainer.className = `toast-notification ${type}`;
+            toastContainer.innerHTML = message;
+            document.body.appendChild(toastContainer);
+            
+            setTimeout(() => {
+                toastContainer.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                toastContainer.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(toastContainer);
+                }, 300);
+            }, 3000);
+        }
+        
+        // Event listeners for save buttons
+        document.getElementById('save-follow-settings').addEventListener('click', () => {
+            const settings = {
+                duration: parseInt(document.getElementById('follow-duration').value),
+                sound_effect: document.getElementById('follow-sound').value,
+                animation: document.getElementById('follow-animation').value,
+                enabled: true
+            };
+            saveAlertSettings('follow', settings);
+        });
+        
+        document.getElementById('save-sub-settings').addEventListener('click', () => {
+            const settings = {
+                duration: parseInt(document.getElementById('sub-duration').value),
+                sound_effect: document.getElementById('sub-sound').value,
+                animation: document.getElementById('sub-animation').value,
+                enabled: true
+            };
+            saveAlertSettings('subscription', settings);
+        });
+        
+        document.getElementById('save-cheer-settings').addEventListener('click', () => {
+            const settings = {
+                duration: parseInt(document.getElementById('cheer-duration') ? document.getElementById('cheer-duration').value : 6),
+                sound_effect: document.getElementById('cheer-sound').value,
+                animation: document.getElementById('cheer-animation').value,
+                min_value: parseInt(document.getElementById('bits-min').value),
+                enabled: true
+            };
+            saveAlertSettings('cheer', settings);
+        });
+        
+        // Fetch initial data on page load
+        window.addEventListener('load', () => {
+            // Load events
+            fetch('/api/events')
+                .then(response => response.json())
+                .then(events => {
+                    events.forEach(event => addEvent(event));
+                })
+                .catch(error => console.error('Error fetching events:', error));
+            
+            // Load stats
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(stats => {
+                    document.getElementById('viewer-count').textContent = stats.viewer_count || 0;
+                    document.getElementById('follower-count').textContent = stats.today_followers || 0;
+                    document.getElementById('sub-count').textContent = stats.today_subs || 0;
+                })
+                .catch(error => console.error('Error fetching stats:', error));
+            
+            // Load alert settings
+            loadAlertSettings();
+        });
+            
+    </script>

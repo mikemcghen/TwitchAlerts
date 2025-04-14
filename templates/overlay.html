@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overlay</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.3/socket.io.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap'); 
+        
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Comic Code', 'Comic Sans MS', 'Comic Neue', cursive;
+            color: white;
+        }
+        .alert-box {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 25px;
+            white-space: nowrap;
+            display: none;
+        }
+        .cheer-box {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 193, 7, 0.8);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 25px;
+            white-space: nowrap;
+            display: none;
+        }
+        .points-box {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(102, 51, 153, 0.8); /* Purple color for channel points */
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-size: 25px;
+            white-space: nowrap;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="alert-box" class="alert-box"></div>
+    <div id="cheer-box" class="cheer-box"></div>
+    <div id="points-box" class="points-box"></div>
+
+    <script>
+        const socket = io({
+            query: {
+                client_type: 'overlay'
+            }
+        });
+        let alertQueue = [];
+        let isAlertActive = false;
+        let isCheerActive = false;
+        let isPointsActive = false;
+        const alertDuration = 3000; // Time alert is visible
+        const alertSpacing = 1000; // Additional time between alerts
+
+        function showNextAlert() {
+            if (isAlertActive || alertQueue.length === 0) return;
+
+            isAlertActive = true;
+            const alertBox = document.getElementById("alert-box");
+            const alertData = alertQueue.shift();
+            alertBox.innerHTML = alertData;
+            alertBox.style.display = "block";
+
+            setTimeout(() => {
+                alertBox.style.display = "none";
+                setTimeout(() => {
+                    isAlertActive = false;
+                    showNextAlert();
+                }, alertSpacing);
+            }, alertDuration);
+        }
+
+        function showCheerAlert(message) {
+            if (isCheerActive) return;
+
+            isCheerActive = true;
+            const cheerBox = document.getElementById("cheer-box");
+            cheerBox.innerHTML = message;
+            cheerBox.style.display = "block";
+
+            setTimeout(() => {
+                cheerBox.style.display = "none";
+                isCheerActive = false;
+            }, 5000);
+        }
+
+        function showPointsAlert(message) {
+            if (isPointsActive) return;
+
+            isPointsActive = true;
+            const pointsBox = document.getElementById("points-box");
+            pointsBox.innerHTML = message;
+            pointsBox.style.display = "block";
+
+            setTimeout(() => {
+                pointsBox.style.display = "none";
+                isPointsActive = false;
+            }, 5000);
+        }
+
+        socket.on("twitch_alert", function(data) {
+            console.log("Alert received:", data);
+
+            let alertMessage = "";
+            if (data.type === "channel.follow") {
+                alertMessage = `🚀 New Follow: ${data.data.user_name}`;
+            } else if (data.type === "channel.subscribe") {
+                alertMessage = `💜 New Sub: ${data.data.user_name}`;
+            } else if (data.type === "channel.raid") {
+                alertMessage = `🔥 Raid from ${data.data.from_broadcaster_user_name} with ${data.data.viewers} viewers!`;
+            } else if (data.type === "channel.cheer") {
+                let cheerMessage = `🎉 ${data.data.user_name} cheered ${data.data.bits} bits: "${data.data.message}"`;
+                showCheerAlert(cheerMessage);
+                return;
+            } else if (data.type === "channel_points") {
+                let pointsMessage = `💎 ${data.data.user_name} redeemed: ${data.data.reward} ${data.data.message}`;
+                showPointsAlert(pointsMessage);
+                return;
+            }
+
+            if (alertMessage) {
+                alertQueue.push(alertMessage);
+                showNextAlert();
+            }
+        });
+    </script>
+</body>
+</html>
